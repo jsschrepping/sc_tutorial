@@ -1,0 +1,1 @@
+This repository contains a RMD file with a tutorial on single-cell RNA-seq analysis based on Seurat as well as test data from 10X and a short corresponding presentation.

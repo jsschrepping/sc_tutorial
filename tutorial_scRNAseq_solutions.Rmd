@@ -358,13 +358,18 @@ Furthermore, we can exclude cells with a high percentage of mitochondrial reads,
 Task: Set the thresholds to what you think they should be according to the violin plots by replacing the stars with reasonable numbers.
 
 ```{r}
-pbmc <- subset(pbmc, subset = nFeature_RNA > *** & nFeature_RNA < *** & percent.mt < ***)
+pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 5000 & percent.mt < 20)
 ```
 
 How many cells are you left with?
+```{r}
+dim(pbmc)
+```
 
-
-Compare the filtered data with previous plots!
+Compare with previous plots:
+```{r, fig.width=12,fig.height=6}
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+```
 
 ---------------------------------------------------------------------------------------------------
 
@@ -391,7 +396,7 @@ Next, we calculate a subset of features that exhibit high cell-to-cell variation
 
 The procedure in Seurat v3 is described in detail [here](https://www.biorxiv.org/content/early/2018/11/02/460147.full.pdf), and improves on previous versions by directly modeling the mean-variance relationship inherent in single-cell data, and is implemented in the FindVariableFeatures function. By default, the function returns 2,000 features per dataset. These will be used in downstream analysis, like PCA.
 
-```{r, fig.width=6,fig.height=6}
+```{r, fig.width=12,fig.height=6}
 pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
 
 # Identify the 10 most highly variable genes
@@ -422,7 +427,7 @@ pbmc <- ScaleData(pbmc, features = all.genes)
 
 # Perform dimensional reduction
 
-Next, we perform PCA on the scaled data. By default, only the previously determined variable features are used as input, but can be defined using features argument if you wish to choose a different subset.We have typically found that running dimensionality reduction on highly variable genes can improve performance. However, with UMI data - particularly after regressing out technical variables, we often see that PCA returns similar (albeit slower) results when run on much larger subsets of genes, including the whole transcriptome.
+Next, we perform PCA on the scaled data. By default, only the previously determined variable features are used as input, but can be defined using the features argument if you wish to choose a different subset. Typically, running dimensionality reduction on highly variable genes can improve performance. However, with UMI data - particularly after regressing out technical variables, we often see that PCA returns similar (albeit slower) results when run on much larger subsets of genes, including the whole transcriptome.
 
 ```{r}
 pbmc <- RunPCA(pbmc, 
@@ -444,7 +449,7 @@ Plot principal components 1 and 2 in a scatterplot. Every dot represents a cell.
 DimPlot(pbmc, reduction = "pca",dims = c(1,2))
 ```
  
-In particular DimHeatmap allows for easy exploration of the primary sources of heterogeneity in a dataset, and can be useful when trying to decide which PCs to include for further downstream analyses. Both cells and features are ordered according to their PCA scores. Setting cells to a number plots the ‘extreme’ cells on both ends of the spectrum, which dramatically speeds plotting for large datasets. Though clearly a supervised analysis, we find this to be a valuable tool for exploring correlated feature sets.
+In particular DimHeatmap allows for easy exploration of the primary sources of heterogeneity in a dataset, and can be useful when trying to decide which PCs to include for further downstream analyses. Both cells and features are ordered according to their PCA scores. Setting 'cells' to a certain number plots the ‘extreme’ cells on both ends of the spectrum, which dramatically speeds plotting for large datasets. Though clearly a supervised analysis, we find this to be a valuable tool for exploring correlated feature sets.
 
 ```{r}
 DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
@@ -470,13 +475,13 @@ pbmc <- JackStraw(pbmc, num.replicate = 100)
 pbmc <- ScoreJackStraw(pbmc, dims = 1:20)
 ```
 
-The JackStrawPlot function provides a visualization tool for comparing the distribution of p-values for each PC with a uniform distribution (dashed line). ‘Significant’ PCs will show a strong enrichment of features with low p-values (solid curve above the dashed line). In this case it appears that there is a sharp drop-off in significance after the first 10-12 PCs.
+The JackStrawPlot function provides a visualization tool for comparing the distribution of p-values for each PC with a uniform distribution (dashed line). ‘Significant’ PCs will show a strong enrichment of features with low p-values (solid curve above the dashed line). In this case, it appears that there is a sharp drop-off in significance after the first 15 PCs.
 
 ```{r}
-JackStrawPlot(pbmc, dims = 1:15)
+JackStrawPlot(pbmc, dims = 1:20)
 ```
 
-An alternative heuristic method generates an ‘Elbow plot’: a ranking of principle components based on the percentage of variance explained by each one (ElbowPlot function). In this example, we can observe an ‘elbow’ around PC9-10, suggesting that the majority of true signal is captured in the first 10 PCs.
+An alternative heuristic method generates an ‘Elbow plot’: a ranking of principle components based on the percentage of variance explained by each one (ElbowPlot function). In this example, we can observe an ‘elbow’ around PC 9-10, suggesting that the majority of true signal is captured in the first 10 PCs.
 
 ```{r}
 ElbowPlot(pbmc)
@@ -492,11 +497,11 @@ We choose 10 here, but we
 
 # Clustering
 
-Seurat v3 applies a graph-based clustering approach, building upon initial strategies in (Macosko et al). Importantly, the distance metric which drives the clustering analysis (based on previously identified PCs) remains the same. However, our approach to partioning the cellular distance matrix into clusters has dramatically improved. Our approach was heavily inspired by recent manuscripts which applied graph-based clustering approaches to scRNA-seq data [SNN-Cliq, Xu and Su, Bioinformatics, 2015] and CyTOF data [PhenoGraph, Levine et al., Cell, 2015]. Briefly, these methods embed cells in a graph structure - for example a K-nearest neighbor (KNN) graph, with edges drawn between cells with similar feature expression patterns, and then attempt to partition this graph into highly interconnected ‘quasi-cliques’ or ‘communities’.
+Seurat v3 applies a graph-based clustering approach, building upon initial strategies in (Macosko et al). Importantly, the distance metric which drives the clustering analysis (based on previously identified PCs) remains the same. However, the approach to partioning the cellular distance matrix into clusters has dramatically improved. The approach was heavily inspired by recent manuscripts which applied graph-based clustering approaches to scRNA-seq data [SNN-Cliq, Xu and Su, Bioinformatics, 2015] and CyTOF data [PhenoGraph, Levine et al., Cell, 2015]. Briefly, these methods embed cells in a graph structure - for example a K-nearest neighbor (KNN) graph, with edges drawn between cells with similar feature expression patterns, and then attempt to partition this graph into highly interconnected ‘quasi-cliques’ or ‘communities’.
 
-As in PhenoGraph, we first construct a KNN graph based on the euclidean distance in PCA space, and refine the edge weights between any two cells based on the shared overlap in their local neighborhoods (Jaccard similarity). This step is performed using the FindNeighbors function, and takes as input the previously defined dimensionality of the dataset (first 10 PCs).
+As in PhenoGraph, the algorithm first constructs a KNN graph based on the euclidean distance in PCA space, and refines the edge weights between any two cells based on the shared overlap in their local neighborhoods (Jaccard similarity). This step is performed using the FindNeighbors function, and takes as input the previously defined dimensionality of the dataset (first 10 PCs).
 
-To cluster the cells, we next apply modularity optimization techniques such as the Louvain algorithm (default) or SLM [SLM, Blondel et al., Journal of Statistical Mechanics], to iteratively group cells together, with the goal of optimizing the standard modularity function. The FindClusters function implements this procedure, and contains a resolution parameter that sets the ‘granularity’ of the downstream clustering, with increased values leading to a greater number of clusters. We find that setting this parameter between 0.4-1.2 typically returns good results for single-cell datasets of around 3K cells. Optimal resolution often increases for larger datasets. The clusters can be found using the Idents function.
+To cluster the cells, we next apply modularity optimization techniques such as the Louvain algorithm (default) or SLM [SLM, Blondel et al., Journal of Statistical Mechanics], to iteratively group cells together, with the goal of optimizing the standard modularity function. The FindClusters function implements this procedure, and contains a resolution parameter that sets the ‘granularity’ of the downstream clustering, with increased values leading to a greater number of clusters. We find that setting this parameter between 0.3-1.0 typically returns good results for single-cell datasets of around 2K cells. Optimal resolution often increases for larger dataset containing more cell types or states. 
 
 ```{r}
 pbmc <- FindNeighbors(pbmc, dims = 1:10)
@@ -506,6 +511,18 @@ pbmc <- FindClusters(pbmc, resolution = 0.3)
 ```{r}
 # Look at cluster IDs of the first 5 cells
 head(Idents(pbmc), 5)
+```
+
+Now, the default identity of the cells has changed to the respective cluster IDs. Additionally, the clustering information can be accessed by: 
+
+```{r}
+head(pbmc$RNA_snn_res.0.3)
+```
+
+**Number of cells per cluster:**
+
+```{r}
+table(pbmc$RNA_snn_res.0.3)
 ```
 
 # Run Non-linear dimensional reduction
@@ -571,7 +588,9 @@ CombinePlots(clustering_list,ncol=3)
 
 # Finding differentially expressed features (cluster biomarkers)
 
-Seurat can help you find markers that define clusters via differential expression. By default, it identifes positive and negative markers of a single cluster (specified in ident.1), compared to all other cells. FindAllMarkers automates this process for all clusters, but you can also test groups of clusters vs. each other, or against all cells.
+Seurat can help you find markers that define clusters via differential expression. By default, it identifes positive and negative markers of a single cluster (specified in ident.1), compared to all other cells. 
+
+FindAllMarkers automates this process for all clusters, but you can also test groups of clusters vs. each other, or against all cells.
 
 The min.pct argument requires a feature to be detected at a minimum percentage in either of the two groups of cells, and the thresh.test argument requires a feature to be differentially expressed (on average) by some amount between the two groups. You can set both of these to 0, but with a dramatic increase in time - since this will test a large number of features that are unlikely to be highly discriminatory. As another option to speed up these computations, max.cells.per.ident can be set. This will downsample each identity class to have no more cells than whatever this is set to. While there is generally going to be a loss in power, the speed increases can be significiant and the most highly differentially expressed features will likely still rise to the top.
 
@@ -597,9 +616,9 @@ pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 Seurat includes several tools for visualizing marker expression. VlnPlot (shows expression probability distributions across clusters), and FeaturePlot (visualizes gene expression on a tSNE or PCA plot) are our most commonly used visualizations.
 
 ## Violinplot
-```{r}
+```{r, fig.height=3,fig.width=9}
 VlnPlot(object = pbmc, 
-        features = c("MS4A1", "CD79A"))
+        features = c("S100A8", "IL7R","IGHM","GZMK"),ncol = 4)
 ```
 
 ## Plot marker expression on tSNE
@@ -623,19 +642,19 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 ```
 
 # Expression of well-characterized cell type markers
-Fortunately in the case of this dataset, we can use canonical markers to easily match the unbiased clustering to known cell types:
+Fortunately in the case of this dataset, we can use well described markers to  match the unbiased clustering results to known cell types:
 
 
-Cluster ID | Markers         | Cell Type
------------|-----------------|------------------
-0          | IL7R            | CD4 T cells
-1          | CD14, LYZ       | CD14+ Monocytes
-2          | MS4A1           | B cells
-3          | CD8A            | CD8 T cells
-4          | FCGR3A, MS4A7   | FCGR3A+ Monocytes
-5          | GNLY, NKG7      | NK cells
-6          | FCER1A, CST3    | Dendritic Cells
-7          | PPBP            | Megakaryocytes
+Markers         | Cell Type
+----------------|------------------
+IL7R            | CD4 T cells
+CD14, LYZ       | CD14+ Monocytes
+MS4A1           | B cells
+CD8A            | CD8 T cells
+FCGR3A, MS4A7   | FCGR3A+ Monocytes
+GNLY, NKG7      | NK cells
+FCER1A, CST3    | Dendritic Cells
+PPBP            | Megakaryocytes
 
 
 ```{r, fig.height=12, fig.width=12}
@@ -656,7 +675,7 @@ FeaturePlot(object = pbmc,
 
 ---------------------------------------------------------------------------------------------------
 
-# Advanced tasks:
+# Additional tasks:
 
 Next, we define cells belonging to the myeloid or lymphoid lineage and practice some of the functions introduced earlier on this example:
 
@@ -667,9 +686,8 @@ pbmc$lineage <- ifelse(pbmc$RNA_snn_res.0.3 %in% c("0","6","7"),"myeloid","lymph
 ```
 
 Task: How many cells for each lineage does the data set contain?
-
 ```{r}
-
+table(pbmc$lineage)
 ```
 
 We now set the default identity of the cells to the lineage.
@@ -681,24 +699,37 @@ Idents(object = pbmc) <- "lineage"
 Task: Compare the distribution of unique gene counts for both lineages:
 
 ```{r}
-
+VlnPlot(pbmc, features = c("nFeature_RNA"))+NoLegend()
 ```
+
+Myeloid cells seem to express more genes than lympoid cells!
 
 Task: Plot the dimensionality reduction plot (tSNE) with cells colored according to lineage and design a custom coloring for the two conditions. Remember, all Seurat plots are based on ggplot2 and accept additional input accordingly.
 
 ```{r,fig.height=6,fig.width=8}
-
+DimPlot(object = pbmc, reduction = "tsne",label = TRUE)+scale_color_manual(values=c("myeloid" = "#A35884", "lymphoid" = "#A9DDD9"))
 ```
 
 Task: Split the dimension reduction plot according to lineage and color by cluster:
 ```{r,fig.height=6,fig.width=13}
-
+DimPlot(object = pbmc, reduction = "tsne",group.by = "RNA_snn_res.0.3",split.by="lineage",label = TRUE)
 ```
 
 Task: Calculate differentially expressed genes between myeloid and lymphoid cells and display a heatmap of the top 10 genes. In case you don't like the Seurat coloring of the heatmap, try to change it.
+```{r}
+lineage.markers <- FindAllMarkers(pbmc, 
+                               only.pos = TRUE,
+                               group.by = "lineage",
+                               min.pct = 0.25)
+
+lineage.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC) -> lineage.top10
+lineage.top10
+```
 
 ```{r}
-
+DoHeatmap(pbmc, features = lineage.top10$gene,angle = 0)+ 
+  scale_fill_gradientn(colors = c("#A9DDD9", "white", "#A35884"))
+  
 ```
 
 ---------------------------------------------------------------------------------------------------

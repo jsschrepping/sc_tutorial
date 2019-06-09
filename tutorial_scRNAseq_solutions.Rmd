@@ -615,6 +615,14 @@ pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 
 Seurat includes several tools for visualizing marker expression. VlnPlot (shows expression probability distributions across clusters), and FeaturePlot (visualizes gene expression on a tSNE or PCA plot) are our most commonly used visualizations.
 
+## Dotplot
+
+```{r,fig.width=12,fig.height=6}
+pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)->top2
+DotPlot(object=pbmc,features = top2$gene,group.by = "RNA_snn_res.0.3",)
+```
+
+
 ## Violinplot
 ```{r, fig.height=3,fig.width=9}
 VlnPlot(object = pbmc, 

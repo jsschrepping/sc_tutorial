@@ -82,13 +82,6 @@ Please uncomment and execute the following three chunks **once** before you star
 #                   "ggplot2"))
 ```
 
-## BioConductor 
-```{r}
-# if (!requireNamespace("BiocManager", quietly = TRUE))
-#     install.packages("BiocManager")
-# 
-# BiocManager::install(c("biomaRt","org.Hs.eg.db"))
-```
 
 # Load packages
 ```{r, echo=FALSE, message=FALSE}
@@ -96,8 +89,6 @@ library(dplyr)
 library(ggplot2)
 library(reshape2)
 library(Seurat)
-library(biomaRt)
-library(org.Mm.eg.db) 
 ```
 
 # Load the data
@@ -159,25 +150,36 @@ paste(round((sum(pbmc.data==0)/(nrow(pbmc.data)*ncol(pbmc.data)))*100,2), " %",s
 
 ## Present gene types
 
-Download gene annotation using biomart
+Load gene annotation
 
 ```{r}
-# Access ensembl data base and download relevant information:
-ensembl <- useMart("ensembl",
-                   dataset="hsapiens_gene_ensembl") # needs internet connection!
+bm <- read.delim("biomart_table.txt", header= TRUE, stringsAsFactors = FALSE,sep = "\t")
+```
 
-# Download selected attributes:
-bm <- getBM(attributes = c("ensembl_gene_id", 
-                           "external_gene_name", 
-                           "description", 
-                           "gene_biotype",
-                           "chromosome_name"),
-            mart = ensembl)
+This table has been produced using the following code: 
 
-head(bm)
-
-# If you don't have internet connection, please uncomment and execute the following command.
-# bm <- read.delim("biomart_table.txt", header= TRUE, stringsAsFactors = FALSE,sep = "\t")
+```{r, echo=FALSE}
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# 
+# BiocManager::install(c("biomaRt","org.Hs.eg.db"))
+# 
+# library(biomaRt)
+# library(org.Hs.eg.db) 
+# 
+# # Access ensembl data base and download relevant information:
+# ensembl <- useMart("ensembl",
+#                    dataset="hsapiens_gene_ensembl") # needs internet connection!
+# 
+# # Download selected attributes:
+# bm <- getBM(attributes = c("ensembl_gene_id", 
+#                            "external_gene_name", 
+#                            "description", 
+#                            "gene_biotype",
+#                            "chromosome_name"),
+#             mart = ensembl)
+# 
+# head(bm)
 ```
 
 ```{r, fig.height=8, fig.width=6}
@@ -600,7 +602,7 @@ Seurat includes several tools for visualizing marker expression. VlnPlot (shows 
 
 ```{r,fig.width=12,fig.height=6}
 pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)->top2
-DotPlot(object=pbmc,features = top2$gene,group.by = "RNA_snn_res.0.3",)
+DotPlot(object=pbmc,features = top2$gene,group.by = "RNA_snn_res.0.3")
 ```
 
 ## Violinplot
@@ -711,6 +713,11 @@ Task: Calculate differentially expressed genes between myeloid and lymphoid cell
 ```
 
 ---------------------------------------------------------------------------------------------------
+
+# Memory usage
+```{r}
+gc()
+```
 
 # Session Info
 ```{r}

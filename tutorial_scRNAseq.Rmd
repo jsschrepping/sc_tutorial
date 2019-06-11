@@ -12,6 +12,10 @@ output:
     toc_float: yes
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
 # Introduction
 
 This practical will perform some of the initial steps in a basic scRNA-seq data analysis, including: 
@@ -84,7 +88,7 @@ Please uncomment and execute the following three chunks **once** before you star
 
 
 # Load packages
-```{r, echo=FALSE, message=FALSE}
+```{r, message=FALSE}
 library(dplyr)
 library(ggplot2)
 library(reshape2)
@@ -92,7 +96,7 @@ library(Seurat)
 ```
 
 # Load the data
-We start by reading the data. From the github repository you downloaded an archive *pbmc_1k_v3_filtered_feature_bc_matrix.tar.gz*. Please unzip the archive (**twice**) to get a directory *filtered_feature_bc_matrix* containing the zipped files (features.tsv.gz, barcodes.tsv.gz, matrix.mtx.gz) in the same directory as your .Rmd file.
+We start by reading the data. From the github repository you downloaded an archive called *pbmc_1k_v3_filtered_feature_bc_matrix.tar.gz*. Please unzip the archive (**twice**) to get a directory *filtered_feature_bc_matrix* containing the zipped files (features.tsv.gz, barcodes.tsv.gz, matrix.mtx.gz) in the same directory as your .Rmd file.
 
 The Read10X function reads in the output of the cellranger pipeline from 10X, returning a unique molecular identified (UMI) count matrix. The values in this matrix represent the number of molecules for each feature (i.e. gene; row) that are detected in each cell (column).
 
@@ -158,7 +162,7 @@ bm <- read.delim("biomart_table.txt", header= TRUE, stringsAsFactors = FALSE,sep
 
 This table has been produced using the following code: 
 
-```{r, echo=FALSE}
+```{r}
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 #     install.packages("BiocManager")
 # 
@@ -182,6 +186,8 @@ This table has been produced using the following code:
 # head(bm)
 ```
 
+
+Plot the expression of all genes according to gene types:
 ```{r, fig.height=8, fig.width=6}
 GeneTypeExpr <- function(input){
   counts <- as.matrix(input)

@@ -1,7 +1,7 @@
 ---
 title: "Tutorial single-cell RNA-seq analysis"
 author: "Jonas Schulte-Schrepping"
-date: "May 27, 2019"
+date: "July 18th, 2019"
 output: 
   html_document: 
     code_download: yes
@@ -433,7 +433,7 @@ all.genes <- rownames(pbmc)
 pbmc <- ScaleData(pbmc, features = all.genes)
 ```
 
-# Perform dimensional reduction
+# Perform dimensionality reduction
 
 Next, we perform PCA on the scaled data. By default, only the previously determined variable features are used as input, but can be defined using the features argument if you wish to choose a different subset. Typically, running dimensionality reduction on highly variable genes can improve performance. However, with UMI data - particularly after regressing out technical variables, we often see that PCA returns similar (albeit slower) results when run on much larger subsets of genes, including the whole transcriptome.
 
@@ -453,8 +453,8 @@ VizDimLoadings(pbmc, dims = 1:5, reduction = "pca", balanced=TRUE,ncol = 5)
 
 Plot principal components 1 and 2 in a scatterplot. Every dot represents a cell. 
 
-```{r}
-DimPlot(pbmc, reduction = "pca",dims = c(1,2))
+```{r,fig.width=6,fig.height=6}
+DimPlot(pbmc, reduction = "pca",dims = c(1,2))+NoLegend()
 ```
  
 In particular DimHeatmap allows for easy exploration of the primary sources of heterogeneity in a dataset, and can be useful when trying to decide which PCs to include for further downstream analyses. Both cells and features are ordered according to their PCA scores. Setting 'cells' to a certain number plots the ‘extreme’ cells on both ends of the spectrum, which dramatically speeds plotting for large datasets. Though clearly a supervised analysis, we find this to be a valuable tool for exploring correlated feature sets.
@@ -502,6 +502,27 @@ We choose 10 here, but we
    + encourage users to repeat downstream analyses with a different number of PCs (10, 15, or even 50!). As you will observe, the results often do not differ dramatically.
    + advise users to err on the higher side when choosing this parameter. For example, performing downstream analyses with only 5 PCs does signifcanltly and adversely affect results.
 
+# Run Non-linear dimensional reduction
+
+tSNE: T-distributed Stochastic Neighbor Embedding (t-SNE) is a machine learning algorithm for visualization. It is a nonlinear dimensionality reduction technique well-suited for embedding high-dimensional data for visualization in a low-dimensional space of two or three dimensions. Specifically, it models each high-dimensional object by a two- or three-dimensional point in such a way that similar objects are modeled by nearby points and dissimilar objects are modeled by distant points with high probability. 
+
+Seurat uses tSNE as a powerful tool to visualize and explore datasets. While we no longer advise clustering directly on tSNE components, cells within the graph-based clusters determined above should co-localize on the tSNE plot. This is because the tSNE aims to place cells with similar local neighborhoods in high-dimensional space together in low-dimensional space. As input to the tSNE, we suggest using the same PCs as input to the clustering analysis, although computing the tSNE based on scaled gene expression is also supported using the genes.use argument.
+
+Seurat also offers an alternative non-linear dimensional reduction technique called **UMAP** to visualize and explore datasets. To use UMAP you need to install python on your machine and install the library [umap-learn](https://umap-learn.readthedocs.io/en/latest/). For the installation, you can also install the package via reticulate::py_install(packages = 'umap-learn').
+
+As input to the UMAP and tSNE, we suggest using the same PCs as input to the clustering analysis.
+
+```{r}
+pbmc <- RunTSNE(object = pbmc, 
+                dims.use = 1:10)
+```
+
+## tSNE
+
+```{r, fig.width=7, fig.height=6}
+DimPlot(object = pbmc, reduction = "tsne",label = FALSE)+NoLegend()
+```
+
 
 # Clustering
 
@@ -533,20 +554,7 @@ head(pbmc$RNA_snn_res.0.3)
 table(pbmc$RNA_snn_res.0.3)
 ```
 
-# Run Non-linear dimensional reduction
-
-tSNE: T-distributed Stochastic Neighbor Embedding (t-SNE) is a machine learning algorithm for visualization. It is a nonlinear dimensionality reduction technique well-suited for embedding high-dimensional data for visualization in a low-dimensional space of two or three dimensions. Specifically, it models each high-dimensional object by a two- or three-dimensional point in such a way that similar objects are modeled by nearby points and dissimilar objects are modeled by distant points with high probability. 
-
-Seurat uses tSNE as a powerful tool to visualize and explore these datasets. While we no longer advise clustering directly on tSNE components, cells within the graph-based clusters determined above should co-localize on the tSNE plot. This is because the tSNE aims to place cells with similar local neighborhoods in high-dimensional space together in low-dimensional space. As input to the tSNE, we suggest using the same PCs as input to the clustering analysis, although computing the tSNE based on scaled gene expression is also supported using the genes.use argument.
-
-Seurat also offers an alternative non-linear dimensional reduction technique called **UMAP** to visualize and explore datasets. To use UMAP you need to install python on your machine and install the library [umap-learn](https://umap-learn.readthedocs.io/en/latest/). For the installation, you can also install the package via reticulate::py_install(packages = 'umap-learn').
-
-As input to the UMAP and tSNE, we suggest using the same PCs as input to the clustering analysis.
-
-```{r}
-pbmc <- RunTSNE(object = pbmc, 
-                dims.use = 1:10)
-```
+# Visualize Clustering on two-dimensional tSNE plot
 
 ## tSNE {.tabset .tabset-fade}
 
